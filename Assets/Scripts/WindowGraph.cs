@@ -15,6 +15,8 @@ public class WindowGraph : MonoBehaviour
     private RectTransform gridTemplateX;
     //The container that holds all the graph data
     private RectTransform graphContainer;
+    //List to store all instantiate game objects used in the graph
+    private List<GameObject> gameObjectList;
 
     private void Awake()
     {
@@ -23,10 +25,17 @@ public class WindowGraph : MonoBehaviour
         labelTemplateY = graphContainer.Find("LabelTemplateY").GetComponent<RectTransform>();
         gridTemplateY = graphContainer.Find("GridTemplateY").GetComponent<RectTransform>();
         gridTemplateX = graphContainer.Find("GridTemplateX").GetComponent<RectTransform>();
-
+        gameObjectList = new List<GameObject>();
 
         List<int> valueList = new List<int>()
         { 5, -110, 22, 98, 32, 69, 88, 45, 52, 36, -1, -73 };
+
+        valueList.Clear();
+
+        for(int i = 0; i < 15; i++)
+        {
+            valueList.Add(UnityEngine.Random.Range(-300, 600));
+        }
 
         //Show the graph using day and $ labels for the axis (these can be anything)
         this.ShowGraph(valueList, (int _i) => "Day " + (_i + 1), (float _f) => "$" + Mathf.RoundToInt(_f));
@@ -72,11 +81,37 @@ public class WindowGraph : MonoBehaviour
         {
             getAxisLabelY = delegate (float _f) { return Mathf.RoundToInt(_f).ToString(); };
         }
+
+        //Cycle through the gameobject list and destroy then clear the list objects
+        foreach(GameObject gameObject in gameObjectList)
+        {
+            Destroy(gameObject);
+        }
+        gameObjectList.Clear();
+
         //The maximum height of the graph container game object in scene
         float graphHeight = graphContainer.sizeDelta.y;
 
-        //The max (top) of the graph
-        float yMaximum = 100.0f;
+        //The max and min of the graph calculated against all values given
+        float yMaximum = 0.0f;
+        float yMinimum = 0.0f;
+
+        foreach (int value in valueList)
+        {
+            if(value > yMaximum)
+            {
+                yMaximum = value;
+            }
+            if(value < yMinimum)
+            {
+                yMinimum = value;
+            }
+        }
+
+        //Set the maximum and minimum to 20% difference betwen the max and min given (this is the buffer zone)
+        yMaximum = yMaximum + ((yMaximum - yMinimum) * 0.2f);
+        yMinimum = yMinimum - ((yMaximum - yMinimum) * 0.2f);
+
         //Distance between each point on the x-axis
         float xSize = 50.0f;
 
@@ -86,7 +121,7 @@ public class WindowGraph : MonoBehaviour
         for(int i = 0; i < valueList.Count; i++)
         {
             float xPos = xSize + i * xSize;
-            float yPos = (valueList[i] / yMaximum) * (graphHeight);
+            float yPos = ((valueList[i] - yMinimum) / (yMaximum - yMinimum)) * graphHeight;
             Color dotColor;
 
             //Set the dot color based on if the value is a positive or negative number
@@ -100,10 +135,13 @@ public class WindowGraph : MonoBehaviour
             }
 
             GameObject circleGameObject = CreateCircle(new Vector2(xPos, yPos), dotColor);
+            gameObjectList.Add(circleGameObject);
             if(lastCircleGameObject != null)
             {
-                CreateDotConnections(lastCircleGameObject.GetComponent<RectTransform>().anchoredPosition, 
+                GameObject dotConnectionGameObject = CreateDotConnections(lastCircleGameObject.GetComponent<RectTransform>().anchoredPosition, 
                 circleGameObject.GetComponent<RectTransform>().anchoredPosition);
+
+                gameObjectList.Add(dotConnectionGameObject);
             }
             lastCircleGameObject = circleGameObject;
 
@@ -116,12 +154,14 @@ public class WindowGraph : MonoBehaviour
             labelX.gameObject.SetActive(true);
             labelX.anchoredPosition = new Vector2(xPos, -7.0f);
             labelX.GetComponent<Text>().text = getAxisLabelX(i);
+            gameObjectList.Add(labelX.gameObject);
 
             //Set the grid on the X axis the same as setting the label
             RectTransform gridX = Instantiate(gridTemplateX);
             gridX.SetParent(graphContainer, false);
             gridX.gameObject.SetActive(true);
             gridX.anchoredPosition = new Vector2(xPos, -3.0f);
+            gameObjectList.Add(gridX.gameObject);
         }
 
         //For each value on the Y create a new instance of the label,
@@ -137,14 +177,16 @@ public class WindowGraph : MonoBehaviour
             //And anchor the position times the graph height otherwise all labels will stack ontop of eachother
             float normalizedYValue = i * 1.0f / seperatorCount;
             labelY.anchoredPosition = new Vector2(-7.0f, normalizedYValue * graphHeight);
-            //Show the value in text as a normalized value to the maximum
-            labelY.GetComponent<Text>().text = getAxisLabelY(normalizedYValue * yMaximum);
+            //Show the value in text as a normalized value using the minimum and maximum
+            labelY.GetComponent<Text>().text = getAxisLabelY(yMinimum + (normalizedYValue * (yMaximum - yMinimum)));
+            gameObjectList.Add(labelY.gameObject);
 
             //Set the grid on the Y axis the same as setting the label
             RectTransform gridY = Instantiate(gridTemplateY);
             gridY.SetParent(graphContainer, false);
             gridY.gameObject.SetActive(true);
             gridY.anchoredPosition = new Vector2(-4.0f, normalizedYValue * graphHeight);
+            gameObjectList.Add(gridY.gameObject);
         }
     }
 
@@ -153,7 +195,7 @@ public class WindowGraph : MonoBehaviour
     /// </summary>
     /// <param name="dotPosA">Dot position a.</param>
     /// <param name="dotPosB">Dot position b.</param>
-    private void CreateDotConnections(Vector2 dotPosA, Vector2 dotPosB)
+    private GameObject CreateDotConnections(Vector2 dotPosA, Vector2 dotPosB)
     {
         GameObject gameObject = new GameObject("DotConnection", typeof(Image));
         gameObject.transform.SetParent(graphContainer, false);
@@ -169,6 +211,7 @@ public class WindowGraph : MonoBehaviour
         rectTransform.anchoredPosition = dotPosA + dir * distance * 0.5f;
         //Set the angle to be correct to connect the two points
         rectTransform.localEulerAngles = new Vector3(0, 0, GetAngleFromVectorFloat(dir));
+        return gameObject;
     }
 
     /// <summary>
