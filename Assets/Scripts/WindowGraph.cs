@@ -8,12 +8,18 @@ public class WindowGraph : MonoBehaviour
     //To show the dots on the graph
     [SerializeField] private Sprite circleSprite;
     [SerializeField] private Sprite dotConnection;
+    private RectTransform labelTemplateX;
+    private RectTransform labelTemplateY;
+    private RectTransform gridTemplate;
     //The container that holds all the graph data
     private RectTransform graphContainer;
 
     private void Awake()
     {
         graphContainer = transform.Find("GraphContainer").GetComponent<RectTransform>();
+        labelTemplateX = graphContainer.Find("LabelTemplateX").GetComponent<RectTransform>();
+        labelTemplateY = graphContainer.Find("LabelTemplateY").GetComponent<RectTransform>();
+        gridTemplate = graphContainer.Find("GridTemplate").GetComponent<RectTransform>();
 
         List<int> valueList = new List<int>()
         { 5, 11, 22, 98, 32, 69, 88, 45, 52, 36, 1, 73 };
@@ -71,6 +77,40 @@ public class WindowGraph : MonoBehaviour
                 circleGameObject.GetComponent<RectTransform>().anchoredPosition);
             }
             lastCircleGameObject = circleGameObject;
+
+            //Create a new instance of a label on the x axis,
+            //Set the parent to the graph container
+            //Activate it, and adjust spacing
+            //Set the string name to represent the value
+            RectTransform labelX = Instantiate(labelTemplateX);
+            labelX.SetParent(graphContainer, false);
+            labelX.gameObject.SetActive(true);
+            labelX.anchoredPosition = new Vector2(xPos, -7.0f);
+            labelX.GetComponent<Text>().text = i.ToString();
+        }
+
+        //For each value on the Y create a new instance of the label,
+        //Set the parent
+        //Set it to be active
+        int seperatorCount = 10;
+        for(int i = 0; i <= seperatorCount; i++)
+        {
+            RectTransform labelY = Instantiate(labelTemplateY);
+            labelY.SetParent(graphContainer, false);
+            labelY.gameObject.SetActive(true);
+            //For the Y values normalize the value using the current count
+            //And anchor the position times the graph height otherwise all labels will stack ontop of eachother
+            float normalizedYValue = i * 1.0f / seperatorCount;
+            labelY.anchoredPosition = new Vector2(-7.0f, normalizedYValue * graphHeight);
+            //Show the value in text as a normalized value to the maximum
+            labelY.GetComponent<Text>().text = "" + (Mathf.RoundToInt(normalizedYValue * yMaximum));
+
+
+            //Set the grid on the Y axis the same as setting the label
+            RectTransform gridY = Instantiate(gridTemplate);
+            gridY.SetParent(graphContainer, false);
+            gridY.gameObject.SetActive(true);
+            gridY.anchoredPosition = new Vector2(-4.0f, normalizedYValue * graphHeight);
         }
     }
 
