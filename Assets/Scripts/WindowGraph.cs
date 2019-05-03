@@ -26,7 +26,7 @@ public class WindowGraph : MonoBehaviour
 
 
         List<int> valueList = new List<int>()
-        { 5, 11, 22, 98, 32, 69, 88, 45, 52, 36, 1, 73 };
+        { 5, -110, 22, 98, 32, 69, 88, 45, 52, 36, -1, -73 };
 
         //Show the graph using day and $ labels for the axis (these can be anything)
         this.ShowGraph(valueList, (int _i) => "Day " + (_i + 1), (float _f) => "$" + Mathf.RoundToInt(_f));
@@ -37,12 +37,13 @@ public class WindowGraph : MonoBehaviour
     /// </summary>
     /// <returns>The circle.</returns>
     /// <param name="anchoredPosition">Anchored position.</param>
-    private GameObject CreateCircle(Vector2 anchoredPosition)
+    private GameObject CreateCircle(Vector2 anchoredPosition, Color dotColor)
     {
         //Instantiate a new game object with the circle/dot prefab
         GameObject gameObject = new GameObject("Circle", typeof(Image));
         gameObject.transform.SetParent(graphContainer, false);
         gameObject.GetComponent<Image>().sprite = circleSprite;
+        gameObject.GetComponent<Image>().color = dotColor;
 
         //Adjust the rect transform to conform to the graphs box
         RectTransform rectTransform = gameObject.GetComponent<RectTransform>();
@@ -85,8 +86,20 @@ public class WindowGraph : MonoBehaviour
         for(int i = 0; i < valueList.Count; i++)
         {
             float xPos = xSize + i * xSize;
-            float yPos = (valueList[i] / yMaximum) * graphHeight;
-            GameObject circleGameObject = CreateCircle(new Vector2(xPos, yPos));
+            float yPos = (valueList[i] / yMaximum) * (graphHeight);
+            Color dotColor;
+
+            //Set the dot color based on if the value is a positive or negative number
+            if(valueList[i] < 0)
+            {
+                dotColor = Color.red;
+            }
+            else
+            {
+                dotColor = Color.green;
+            }
+
+            GameObject circleGameObject = CreateCircle(new Vector2(xPos, yPos), dotColor);
             if(lastCircleGameObject != null)
             {
                 CreateDotConnections(lastCircleGameObject.GetComponent<RectTransform>().anchoredPosition, 
@@ -126,7 +139,6 @@ public class WindowGraph : MonoBehaviour
             labelY.anchoredPosition = new Vector2(-7.0f, normalizedYValue * graphHeight);
             //Show the value in text as a normalized value to the maximum
             labelY.GetComponent<Text>().text = getAxisLabelY(normalizedYValue * yMaximum);
-
 
             //Set the grid on the Y axis the same as setting the label
             RectTransform gridY = Instantiate(gridTemplateY);
