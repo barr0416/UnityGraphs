@@ -1,4 +1,5 @@
-﻿using System.Collections;
+﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
@@ -10,7 +11,8 @@ public class WindowGraph : MonoBehaviour
     [SerializeField] private Sprite dotConnection;
     private RectTransform labelTemplateX;
     private RectTransform labelTemplateY;
-    private RectTransform gridTemplate;
+    private RectTransform gridTemplateY;
+    private RectTransform gridTemplateX;
     //The container that holds all the graph data
     private RectTransform graphContainer;
 
@@ -19,12 +21,15 @@ public class WindowGraph : MonoBehaviour
         graphContainer = transform.Find("GraphContainer").GetComponent<RectTransform>();
         labelTemplateX = graphContainer.Find("LabelTemplateX").GetComponent<RectTransform>();
         labelTemplateY = graphContainer.Find("LabelTemplateY").GetComponent<RectTransform>();
-        gridTemplate = graphContainer.Find("GridTemplate").GetComponent<RectTransform>();
+        gridTemplateY = graphContainer.Find("GridTemplateY").GetComponent<RectTransform>();
+        gridTemplateX = graphContainer.Find("GridTemplateX").GetComponent<RectTransform>();
+
 
         List<int> valueList = new List<int>()
         { 5, 11, 22, 98, 32, 69, 88, 45, 52, 36, 1, 73 };
 
-        this.ShowGraph(valueList);
+        //Show the graph using day and $ labels for the axis (these can be anything)
+        this.ShowGraph(valueList, (int _i) => "Day " + (_i + 1), (float _f) => "$" + Mathf.RoundToInt(_f));
     }
 
     /// <summary>
@@ -53,8 +58,19 @@ public class WindowGraph : MonoBehaviour
     /// Shows the graph.
     /// </summary>
     /// <param name="valueList">Value list.</param>
-    private void ShowGraph(List<int> valueList)
+    /// <param name="getAxisLabelX">Get axis label x.</param>
+    /// <param name="getAxisLabelY">Get axis label y.</param>
+    private void ShowGraph(List<int> valueList, Func<int, string> getAxisLabelX = null, Func<float, string> getAxisLabelY = null)
     {
+        //Set the default axis label to get
+        if(getAxisLabelX == null)
+        {
+            getAxisLabelX = delegate (int _i) { return _i.ToString(); };
+        }
+        if (getAxisLabelY == null)
+        {
+            getAxisLabelY = delegate (float _f) { return Mathf.RoundToInt(_f).ToString(); };
+        }
         //The maximum height of the graph container game object in scene
         float graphHeight = graphContainer.sizeDelta.y;
 
@@ -86,7 +102,13 @@ public class WindowGraph : MonoBehaviour
             labelX.SetParent(graphContainer, false);
             labelX.gameObject.SetActive(true);
             labelX.anchoredPosition = new Vector2(xPos, -7.0f);
-            labelX.GetComponent<Text>().text = i.ToString();
+            labelX.GetComponent<Text>().text = getAxisLabelX(i);
+
+            //Set the grid on the X axis the same as setting the label
+            RectTransform gridX = Instantiate(gridTemplateX);
+            gridX.SetParent(graphContainer, false);
+            gridX.gameObject.SetActive(true);
+            gridX.anchoredPosition = new Vector2(xPos, -3.0f);
         }
 
         //For each value on the Y create a new instance of the label,
@@ -103,11 +125,11 @@ public class WindowGraph : MonoBehaviour
             float normalizedYValue = i * 1.0f / seperatorCount;
             labelY.anchoredPosition = new Vector2(-7.0f, normalizedYValue * graphHeight);
             //Show the value in text as a normalized value to the maximum
-            labelY.GetComponent<Text>().text = "" + (Mathf.RoundToInt(normalizedYValue * yMaximum));
+            labelY.GetComponent<Text>().text = getAxisLabelY(normalizedYValue * yMaximum);
 
 
             //Set the grid on the Y axis the same as setting the label
-            RectTransform gridY = Instantiate(gridTemplate);
+            RectTransform gridY = Instantiate(gridTemplateY);
             gridY.SetParent(graphContainer, false);
             gridY.gameObject.SetActive(true);
             gridY.anchoredPosition = new Vector2(-4.0f, normalizedYValue * graphHeight);
