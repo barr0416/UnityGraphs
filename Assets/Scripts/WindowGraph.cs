@@ -27,18 +27,17 @@ public class WindowGraph : MonoBehaviour
         gridTemplateX = graphContainer.Find("GridTemplateX").GetComponent<RectTransform>();
         gameObjectList = new List<GameObject>();
 
-        List<int> valueList = new List<int>()
-        { 5, -110, 22, 98, 32, 69, 88, 45, 52, 36, -1, -73 };
+        List<int> valueList = new List<int>();
 
         valueList.Clear();
 
-        for(int i = 0; i < 15; i++)
+        for(int i = 0; i < 23; i++)
         {
             valueList.Add(UnityEngine.Random.Range(-300, 600));
         }
 
         //Show the graph using day and $ labels for the axis (these can be anything)
-        this.ShowGraph(valueList, (int _i) => "Day " + (_i + 1), (float _f) => "$" + Mathf.RoundToInt(_f));
+        this.ShowGraph(valueList, -1, (int _i) => "Day " + (_i + 1), (float _f) => "$" + Mathf.RoundToInt(_f));
     }
 
     /// <summary>
@@ -70,7 +69,7 @@ public class WindowGraph : MonoBehaviour
     /// <param name="valueList">Value list.</param>
     /// <param name="getAxisLabelX">Get axis label x.</param>
     /// <param name="getAxisLabelY">Get axis label y.</param>
-    private void ShowGraph(List<int> valueList, Func<int, string> getAxisLabelX = null, Func<float, string> getAxisLabelY = null)
+    private void ShowGraph(List<int> valueList, int maxVisibleValueAmount = -1, Func<int, string> getAxisLabelX = null, Func<float, string> getAxisLabelY = null)
     {
         //Set the default axis label to get
         if(getAxisLabelX == null)
@@ -82,22 +81,29 @@ public class WindowGraph : MonoBehaviour
             getAxisLabelY = delegate (float _f) { return Mathf.RoundToInt(_f).ToString(); };
         }
 
+        if(maxVisibleValueAmount <= 0)
+        {
+            maxVisibleValueAmount = valueList.Count;
+        }
+
         //Cycle through the gameobject list and destroy then clear the list objects
-        foreach(GameObject gameObject in gameObjectList)
+        foreach (GameObject gameObject in gameObjectList)
         {
             Destroy(gameObject);
         }
         gameObjectList.Clear();
 
-        //The maximum height of the graph container game object in scene
+        //The maximum height and width of the graph container game object in scene
         float graphHeight = graphContainer.sizeDelta.y;
+        float graphWidth = graphContainer.sizeDelta.x;
 
         //The max and min of the graph calculated against all values given
         float yMaximum = 0.0f;
         float yMinimum = 0.0f;
 
-        foreach (int value in valueList)
+        for (int i = Mathf.Max(valueList.Count - maxVisibleValueAmount, 0); i < valueList.Count; i++)
         {
+            int value = valueList[i];
             if(value > yMaximum)
             {
                 yMaximum = value;
@@ -108,19 +114,27 @@ public class WindowGraph : MonoBehaviour
             }
         }
 
-        //Set the maximum and minimum to 20% difference betwen the max and min given (this is the buffer zone)
-        yMaximum = yMaximum + ((yMaximum - yMinimum) * 0.2f);
-        yMinimum = yMinimum - ((yMaximum - yMinimum) * 0.2f);
+        //For error fixing if a single value is 0
+        float yDifference = yMaximum - yMinimum;
+        if(yDifference <= 0)
+        {
+            yDifference = 5.0f;
+        }
 
-        //Distance between each point on the x-axis
-        float xSize = 50.0f;
+        //Set the maximum and minimum to 20% difference betwen the max and min given (this is the buffer zone)
+        yMaximum = yMaximum + (yDifference * 0.2f);
+        yMinimum = yMinimum - (yDifference * 0.2f);
+
+        //Distance between each point on the x-axis to scale to the number of points given to graph
+        float xSize = graphWidth / (maxVisibleValueAmount + 1.0f);
 
         GameObject lastCircleGameObject = null;
 
+        int xIndex = 0;
         //Go through each point to be graphed and create it, then connect it to the last point if possible
-        for(int i = 0; i < valueList.Count; i++)
+        for(int i = Mathf.Max(valueList.Count - maxVisibleValueAmount, 0); i < valueList.Count; i++)
         {
-            float xPos = xSize + i * xSize;
+            float xPos = xSize + xIndex * xSize;
             float yPos = ((valueList[i] - yMinimum) / (yMaximum - yMinimum)) * graphHeight;
             Color dotColor;
 
@@ -162,6 +176,9 @@ public class WindowGraph : MonoBehaviour
             gridX.gameObject.SetActive(true);
             gridX.anchoredPosition = new Vector2(xPos, -3.0f);
             gameObjectList.Add(gridX.gameObject);
+
+            //Increase the index for the x values
+            xIndex++;
         }
 
         //For each value on the Y create a new instance of the label,
