@@ -7,7 +7,7 @@ using UnityEngine.UI;
 public class WindowGraph : MonoBehaviour 
 {
     //To show the dots on the graph
-    [SerializeField] private Sprite circleSprite;
+    [SerializeField] private Sprite dotSprite;
     [SerializeField] private Sprite dotConnection;
     private RectTransform labelTemplateX;
     private RectTransform labelTemplateY;
@@ -41,16 +41,16 @@ public class WindowGraph : MonoBehaviour
     }
 
     /// <summary>
-    /// Creates the circle on the graph.
+    /// Creates the dot on the graph.
     /// </summary>
-    /// <returns>The circle.</returns>
+    /// <returns>The dor.</returns>
     /// <param name="anchoredPosition">Anchored position.</param>
-    private GameObject CreateCircle(Vector2 anchoredPosition, Color dotColor)
+    private GameObject CreateDot(Vector2 anchoredPosition, Color dotColor)
     {
-        //Instantiate a new game object with the circle/dot prefab
-        GameObject gameObject = new GameObject("Circle", typeof(Image));
+        //Instantiate a new game object with the dot prefab
+        GameObject gameObject = new GameObject("Dot", typeof(Image));
         gameObject.transform.SetParent(graphContainer, false);
-        gameObject.GetComponent<Image>().sprite = circleSprite;
+        gameObject.GetComponent<Image>().sprite = dotSprite;
         gameObject.GetComponent<Image>().color = dotColor;
 
         //Adjust the rect transform to conform to the graphs box
@@ -128,7 +128,8 @@ public class WindowGraph : MonoBehaviour
         //Distance between each point on the x-axis to scale to the number of points given to graph
         float xSize = graphWidth / (maxVisibleValueAmount + 1.0f);
 
-        GameObject lastCircleGameObject = null;
+
+        //GameObject lastDotGameObject = null;
 
         int xIndex = 0;
         //Go through each point to be graphed and create it, then connect it to the last point if possible
@@ -137,6 +138,10 @@ public class WindowGraph : MonoBehaviour
             float xPos = xSize + xIndex * xSize;
             float yPos = ((valueList[i] - yMinimum) / (yMaximum - yMinimum)) * graphHeight;
             Color dotColor;
+
+            //Create a new bar object for the data at the correct position with the size (multiply to space between bars)
+            GameObject barGameObject = CreateBar(new Vector2(xPos, yPos), xSize * 0.9f);
+            gameObjectList.Add(barGameObject);
 
             //Set the dot color based on if the value is a positive or negative number
             if(valueList[i] < 0)
@@ -148,16 +153,18 @@ public class WindowGraph : MonoBehaviour
                 dotColor = Color.green;
             }
 
-            GameObject circleGameObject = CreateCircle(new Vector2(xPos, yPos), dotColor);
-            gameObjectList.Add(circleGameObject);
-            if(lastCircleGameObject != null)
+            /*
+            GameObject dotGameObject = CreateDot(new Vector2(xPos, yPos), dotColor);
+            gameObjectList.Add(dotGameObject);
+            if(lastDotGameObject != null)
             {
-                GameObject dotConnectionGameObject = CreateDotConnections(lastCircleGameObject.GetComponent<RectTransform>().anchoredPosition, 
-                circleGameObject.GetComponent<RectTransform>().anchoredPosition);
+                GameObject dotConnectionGameObject = CreateDotConnections(lastDotGameObject.GetComponent<RectTransform>().anchoredPosition, 
+                dotGameObject.GetComponent<RectTransform>().anchoredPosition);
 
                 gameObjectList.Add(dotConnectionGameObject);
             }
-            lastCircleGameObject = circleGameObject;
+            lastDotGameObject = dotGameObject;
+            */          
 
             //Create a new instance of a label on the x axis,
             //Set the parent to the graph container
@@ -228,6 +235,22 @@ public class WindowGraph : MonoBehaviour
         rectTransform.anchoredPosition = dotPosA + dir * distance * 0.5f;
         //Set the angle to be correct to connect the two points
         rectTransform.localEulerAngles = new Vector3(0, 0, GetAngleFromVectorFloat(dir));
+        return gameObject;
+    }
+
+    private GameObject CreateBar(Vector2 graphPosition, float barWidth)
+    {
+        GameObject gameObject = new GameObject("Bar", typeof(Image));
+        gameObject.transform.SetParent(graphContainer, false);
+        gameObject.GetComponent<Image>().color = new Color(1, 1, 1, 0.5f);
+        RectTransform rectTransform = gameObject.GetComponent<RectTransform>();
+        //Set 0 for the graph position on the y so that it comes from the bottom
+        rectTransform.anchoredPosition = new Vector2(graphPosition.x, 0.0f);
+        rectTransform.anchorMin = new Vector2(0, 0);
+        rectTransform.anchorMax = new Vector2(0, 0);
+        rectTransform.sizeDelta = new Vector2(barWidth, graphPosition.y);
+        //Set the pivot to the center and bottom
+        rectTransform.pivot = new Vector2(0.5f, 0.0f);
         return gameObject;
     }
 
