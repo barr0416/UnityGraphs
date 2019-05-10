@@ -18,6 +18,19 @@ public class WindowGraph : MonoBehaviour
     //List to store all instantiate game objects used in the graph
     private List<GameObject> gameObjectList;
 
+    private float switchTimer = 2.0f;
+    private float lastSwitchTime = 0.0f;
+    private enum ChartToShow
+    {
+        Bar,
+        Dot
+    }
+    private ChartToShow chartToShow = ChartToShow.Dot;
+
+    private IGraphVisual lineGraphVisual;
+    private IGraphVisual barChartVisual;
+    private List<int> valueList;
+
     private void Awake()
     {
         graphContainer = transform.Find("GraphContainer").GetComponent<RectTransform>();
@@ -27,7 +40,7 @@ public class WindowGraph : MonoBehaviour
         gridTemplateX = graphContainer.Find("GridTemplateX").GetComponent<RectTransform>();
         gameObjectList = new List<GameObject>();
 
-        List<int> valueList = new List<int>();
+        valueList = new List<int>();
 
         valueList.Clear();
 
@@ -36,31 +49,35 @@ public class WindowGraph : MonoBehaviour
             valueList.Add(UnityEngine.Random.Range(-300, 600));
         }
 
+        lineGraphVisual = new LineGraphVisual(graphContainer, dotSprite);
+        barChartVisual = new BarChartVisual(graphContainer, Color.blue, 0.9f);
+
         //Show the graph using day and $ labels for the axis (these can be anything)
-        this.ShowGraph(valueList, -1, (int _i) => "Day " + (_i + 1), (float _f) => "$" + Mathf.RoundToInt(_f));
+        this.ShowGraph(valueList, lineGraphVisual, -1, (int _i) => "Day " + (_i + 1), (float _f) => "$" + Mathf.RoundToInt(_f));
     }
 
     /// <summary>
-    /// Creates the dot on the graph.
+    /// Update this instance.
     /// </summary>
-    /// <returns>The dor.</returns>
-    /// <param name="anchoredPosition">Anchored position.</param>
-    private GameObject CreateDot(Vector2 anchoredPosition, Color dotColor)
+    private void Update()
     {
-        //Instantiate a new game object with the dot prefab
-        GameObject gameObject = new GameObject("Dot", typeof(Image));
-        gameObject.transform.SetParent(graphContainer, false);
-        gameObject.GetComponent<Image>().sprite = dotSprite;
-        gameObject.GetComponent<Image>().color = dotColor;
+        lastSwitchTime += Time.deltaTime;
+        //Switch between the two graphs after set time to show that both are working
+        if(lastSwitchTime >= switchTimer)
+        {
+            if(chartToShow == ChartToShow.Dot)
+            {
+                chartToShow = ChartToShow.Bar;
+                this.ShowGraph(valueList, barChartVisual, -1, (int _i) => "Day " + (_i + 1), (float _f) => "$" + Mathf.RoundToInt(_f));
+            }
+            else if(chartToShow == ChartToShow.Bar)
+            {
+                chartToShow = ChartToShow.Dot;
+                this.ShowGraph(valueList, lineGraphVisual, -1, (int _i) => "Day " + (_i + 1), (float _f) => "$" + Mathf.RoundToInt(_f));
+            }
 
-        //Adjust the rect transform to conform to the graphs box
-        RectTransform rectTransform = gameObject.GetComponent<RectTransform>();
-        rectTransform.anchoredPosition = anchoredPosition;
-        rectTransform.sizeDelta = new Vector2(11, 11);
-        rectTransform.anchorMin = new Vector2(0, 0);
-        rectTransform.anchorMax = new Vector2(0, 0);
-
-        return gameObject;
+            lastSwitchTime = 0.0f;
+        }
     }
 
     /// <summary>
@@ -69,7 +86,7 @@ public class WindowGraph : MonoBehaviour
     /// <param name="valueList">Value list.</param>
     /// <param name="getAxisLabelX">Get axis label x.</param>
     /// <param name="getAxisLabelY">Get axis label y.</param>
-    private void ShowGraph(List<int> valueList, int maxVisibleValueAmount = -1, Func<int, string> getAxisLabelX = null, Func<float, string> getAxisLabelY = null)
+    private void ShowGraph(List<int> valueList, IGraphVisual graphVisual, int maxVisibleValueAmount = -1, Func<int, string> getAxisLabelX = null, Func<float, string> getAxisLabelY = null)
     {
         //Set the default axis label to get
         if(getAxisLabelX == null)
@@ -128,43 +145,31 @@ public class WindowGraph : MonoBehaviour
         //Distance between each point on the x-axis to scale to the number of points given to graph
         float xSize = graphWidth / (maxVisibleValueAmount + 1.0f);
 
-
-        //GameObject lastDotGameObject = null;
-
         int xIndex = 0;
+
         //Go through each point to be graphed and create it, then connect it to the last point if possible
-        for(int i = Mathf.Max(valueList.Count - maxVisibleValueAmount, 0); i < valueList.Count; i++)
+        for (int i = Mathf.Max(valueList.Count - maxVisibleValueAmount, 0); i < valueList.Count; i++)
         {
             float xPos = xSize + xIndex * xSize;
             float yPos = ((valueList[i] - yMinimum) / (yMaximum - yMinimum)) * graphHeight;
             Color dotColor;
 
             //Create a new bar object for the data at the correct position with the size (multiply to space between bars)
-            GameObject barGameObject = CreateBar(new Vector2(xPos, yPos), xSize * 0.9f);
-            gameObjectList.Add(barGameObject);
+            //gameObjectList.AddRange(barChartVisual.AddGraphVisual(new Vector2(xPos, yPos), xSize));
+            gameObjectList.AddRange(graphVisual.AddGraphVisual(new Vector2(xPos, yPos), xSize));
 
             //Set the dot color based on if the value is a positive or negative number
-            if(valueList[i] < 0)
+            if (valueList[i] < 0)
             {
                 dotColor = Color.red;
+                //gameObjectList[i].GetComponent<Image>().color = Color.red;
             }
             else
             {
                 dotColor = Color.green;
-            }
+                //gameObjectList[i].GetComponent<Image>().color = Color.green;
 
-            /*
-            GameObject dotGameObject = CreateDot(new Vector2(xPos, yPos), dotColor);
-            gameObjectList.Add(dotGameObject);
-            if(lastDotGameObject != null)
-            {
-                GameObject dotConnectionGameObject = CreateDotConnections(lastDotGameObject.GetComponent<RectTransform>().anchoredPosition, 
-                dotGameObject.GetComponent<RectTransform>().anchoredPosition);
-
-                gameObjectList.Add(dotConnectionGameObject);
             }
-            lastDotGameObject = dotGameObject;
-            */          
 
             //Create a new instance of a label on the x axis,
             //Set the parent to the graph container
@@ -214,44 +219,130 @@ public class WindowGraph : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// Creates the dot connections.
-    /// </summary>
-    /// <param name="dotPosA">Dot position a.</param>
-    /// <param name="dotPosB">Dot position b.</param>
-    private GameObject CreateDotConnections(Vector2 dotPosA, Vector2 dotPosB)
+    private interface IGraphVisual
     {
-        GameObject gameObject = new GameObject("DotConnection", typeof(Image));
-        gameObject.transform.SetParent(graphContainer, false);
-        gameObject.GetComponent<Image>().sprite = dotConnection;
-        gameObject.GetComponent<Image>().color = new Color(1, 1, 1, 0.5f);
-        RectTransform rectTransform = gameObject.GetComponent<RectTransform>();
-        Vector2 dir = (dotPosB - dotPosA).normalized;
-        float distance = Vector2.Distance(dotPosA, dotPosB);
-        rectTransform.anchorMin = new Vector2(0, 0);
-        rectTransform.anchorMax = new Vector2(0, 0);
-        rectTransform.sizeDelta = new Vector2(distance, 3.0f);
-        //Place between A and B
-        rectTransform.anchoredPosition = dotPosA + dir * distance * 0.5f;
-        //Set the angle to be correct to connect the two points
-        rectTransform.localEulerAngles = new Vector3(0, 0, GetAngleFromVectorFloat(dir));
-        return gameObject;
+        List<GameObject> AddGraphVisual(Vector2 graphPosition, float graphPositionWidth);
     }
 
-    private GameObject CreateBar(Vector2 graphPosition, float barWidth)
+    /// <summary>
+    /// Bar chart visual display.
+    /// </summary>
+    private class BarChartVisual : IGraphVisual
     {
-        GameObject gameObject = new GameObject("Bar", typeof(Image));
-        gameObject.transform.SetParent(graphContainer, false);
-        gameObject.GetComponent<Image>().color = new Color(1, 1, 1, 0.5f);
-        RectTransform rectTransform = gameObject.GetComponent<RectTransform>();
-        //Set 0 for the graph position on the y so that it comes from the bottom
-        rectTransform.anchoredPosition = new Vector2(graphPosition.x, 0.0f);
-        rectTransform.anchorMin = new Vector2(0, 0);
-        rectTransform.anchorMax = new Vector2(0, 0);
-        rectTransform.sizeDelta = new Vector2(barWidth, graphPosition.y);
-        //Set the pivot to the center and bottom
-        rectTransform.pivot = new Vector2(0.5f, 0.0f);
-        return gameObject;
+        private RectTransform graphContainer;
+        private Color barColor;
+        private float barWidthMultiplier;
+
+        //Constructor for the bar chart
+        public BarChartVisual(RectTransform graphContainer, Color barColor, float barWidthMultiplier)
+        {
+            this.graphContainer = graphContainer;
+            this.barColor = barColor;
+            this.barWidthMultiplier = barWidthMultiplier;
+        }
+
+        //Generic function for creating the bar
+        public List<GameObject> AddGraphVisual(Vector2 graphPosition, float graphPositionWidth)
+        {
+            GameObject barGameObject = CreateBar(graphPosition, graphPositionWidth);
+            return new List<GameObject>() { barGameObject };
+        }
+
+        private GameObject CreateBar(Vector2 graphPosition, float barWidth)
+        {
+            GameObject gameObject = new GameObject("Bar", typeof(Image));
+            gameObject.transform.SetParent(graphContainer, false);
+            gameObject.GetComponent<Image>().color = this.barColor;
+            RectTransform rectTransform = gameObject.GetComponent<RectTransform>();
+            //Set 0 for the graph position on the y so that it comes from the bottom
+            rectTransform.anchoredPosition = new Vector2(graphPosition.x, 0.0f);
+            rectTransform.anchorMin = new Vector2(0, 0);
+            rectTransform.anchorMax = new Vector2(0, 0);
+            rectTransform.sizeDelta = new Vector2(barWidth * this.barWidthMultiplier, graphPosition.y);
+            //Set the pivot to the center and bottom
+            rectTransform.pivot = new Vector2(0.5f, 0.0f);
+            return gameObject;
+        }
+    }
+
+    private class LineGraphVisual :IGraphVisual
+    {
+        private RectTransform graphContainer;
+        private Sprite dotSprite;
+        private GameObject lastDotGameObject;
+
+        public LineGraphVisual(RectTransform graphContainer, Sprite dotSprite)
+        {
+            this.graphContainer = graphContainer;
+            this.dotSprite = dotSprite;
+            this.lastDotGameObject = null;
+        }
+
+        public List<GameObject> AddGraphVisual(Vector2 graphPosition, float graphPositionWidth)
+        {
+            List<GameObject> gameObjectList = new List<GameObject>();
+
+            GameObject dotGameObject = CreateDot(graphPosition);
+            gameObjectList.Add(dotGameObject);
+            if(lastDotGameObject != null)
+            {
+                GameObject dotConnectionGameObject = CreateDotConnections(lastDotGameObject.GetComponent<RectTransform>().anchoredPosition, 
+                dotGameObject.GetComponent<RectTransform>().anchoredPosition);
+
+                gameObjectList.Add(dotConnectionGameObject);
+            }
+            lastDotGameObject = dotGameObject;
+
+            return gameObjectList;
+        }
+
+        /// <summary>
+        /// Creates the dot on the graph.
+        /// </summary>
+        /// <returns>The dor.</returns>
+        /// <param name="anchoredPosition">Anchored position.</param>
+        private GameObject CreateDot(Vector2 anchoredPosition)
+        {
+            //Instantiate a new game object with the dot prefab
+            GameObject gameObject = new GameObject("Dot", typeof(Image));
+            gameObject.transform.SetParent(graphContainer, false);
+            gameObject.GetComponent<Image>().sprite = dotSprite;
+            //gameObject.GetComponent<Image>().color = dotColor;
+
+            //Adjust the rect transform to conform to the graphs box
+            RectTransform rectTransform = gameObject.GetComponent<RectTransform>();
+            rectTransform.anchoredPosition = anchoredPosition;
+            rectTransform.sizeDelta = new Vector2(11, 11);
+            rectTransform.anchorMin = new Vector2(0, 0);
+            rectTransform.anchorMax = new Vector2(0, 0);
+
+            return gameObject;
+        }
+
+        /// <summary>
+        /// Creates the dot connections.
+        /// </summary>
+        /// <param name="dotPosA">Dot position a.</param>
+        /// <param name="dotPosB">Dot position b.</param>
+        private GameObject CreateDotConnections(Vector2 dotPosA, Vector2 dotPosB)
+        {
+            GameObject gameObject = new GameObject("DotConnection", typeof(Image));
+            gameObject.transform.SetParent(graphContainer, false);
+            gameObject.GetComponent<Image>().sprite = dotSprite;
+            gameObject.GetComponent<Image>().color = new Color(1, 1, 1, 0.5f);
+            RectTransform rectTransform = gameObject.GetComponent<RectTransform>();
+            Vector2 dir = (dotPosB - dotPosA).normalized;
+            float distance = Vector2.Distance(dotPosA, dotPosB);
+            rectTransform.anchorMin = new Vector2(0, 0);
+            rectTransform.anchorMax = new Vector2(0, 0);
+            rectTransform.sizeDelta = new Vector2(distance, 3.0f);
+            //Place between A and B
+            rectTransform.anchoredPosition = dotPosA + dir * distance * 0.5f;
+            //Set the angle to be correct to connect the two points
+            rectTransform.localEulerAngles = new Vector3(0, 0, GetAngleFromVectorFloat(dir));
+            return gameObject;
+        }
+
     }
 
     /// <summary>
